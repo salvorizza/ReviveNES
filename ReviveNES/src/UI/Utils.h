@@ -7,6 +7,11 @@
 
 namespace NESEmu {
 
+	#define BYTE(x) x
+	#define KIBI(x) 1024 * BYTE(x)
+	#define MIBI(x) 1024 * KIBI(x)
+
+
 	struct DataBuffer {
 		uint8_t* Data;
 		size_t Size;

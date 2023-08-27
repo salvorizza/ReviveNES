@@ -1,25 +1,3 @@
-/*
-
-int main(int argc, char** argv) {
-	std::optional<NESEmu::Palette> palette = NESEmu::Utils::ReadPaletteFile("commons/palettes/2C02G.pal");
-
-	NESEmu::Bus cpuBus("CPU");
-	NESEmu::Bus ppuBus("PPU");
-
-	NESEmu::VRAM vram;
-	NESEmu::WRAM wram;
-	NESEmu::RP2A03 cpu;
-	NESEmu::RP2C02 ppu(palette.value());
-
-
-	while (true) {
-		
-	}
-
-	return 0;
-}*/
-
-
 #include "UI/Application/ApplicationManager.h"
 
 #include "UI/Panels/ViewportPanel.h"
@@ -29,9 +7,11 @@ int main(int argc, char** argv) {
 
 #include "Core/RP2A03.h"
 #include "Core/RP2C02.h"
-
 #include "Core/WRAM.h"
 #include "Core/VRAM.h"
+#include "Core/CartridgeSlot.h"
+
+#include "Utils/Cartridge.h"
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
@@ -51,15 +31,23 @@ public:
 			mPPUBus("PPU"),
 			mPPU(Utils::ReadPaletteFile("commons/palettes/2C02G.pal").value())
 	{
+		mCartridge = Cartridge::loadFromFile("commons/roms/nestest.nes");
+
+		mCartridgeSlot.insert(mCartridge);
 
 		mCPUBus.connectDevice(&mCPU);
 		mCPUBus.connectDevice(&mWRAM);
 		mCPUBus.connectDevice(&mPPU);
+		mCPUBus.connectDevice(&mCartridgeSlot);
 
 		mPPUBus.connectDevice(&mVRAM);
 		mPPUBus.connectDevice(&mPPU);
 
+
+		mCPU.powerUp();
 		mCPU.reset();
+
+		mPPU.powerUp();
 	}
 
 	~ReviveNESApp() {
@@ -71,9 +59,34 @@ public:
 	}
 
 	virtual void onUpdate() override {
-		mCPU.clock();
-		for (int i = 0; i < 3; i++) {
-			mPPU.clock();
+		for (int j = 0; j < 1000; j++) {
+			size_t last = mCPU.mCyclesPassed;
+			mCPU.clock();
+
+			if (last != mCPU.mCyclesPassed) {
+				printf("%04X  %02X ", mCPU.mCurrentInstruction.address, mCPU.mCurrentInstruction.opcode);
+				if (mCPU.mCurrentInstruction.lo != -1) {
+					printf("%02X ", mCPU.mCurrentInstruction.lo);
+				} else {
+					printf("   ");
+				}
+				if (mCPU.mCurrentInstruction.hi != -1) {
+					printf("%02X ", mCPU.mCurrentInstruction.hi);
+				}
+				else {
+					printf("   ");
+				}
+				printf("%s ", mCPU.mCurrentInstruction.Mnemonic.c_str());
+				printf("CYC: %d", mCPU.mCyclesPassed);
+
+				printf("\n");
+				
+				//C000  4C F5 C5  JMP $C5F5                       A:00 X:00 Y:00 P:24 SP:FD PPU:  0, 21 CYC:7
+			}
+
+			for (int i = 0; i < 3; i++) {
+				mPPU.clock();
+			}
 		}
 	}
 
@@ -86,9 +99,8 @@ public:
 
 		float cellWidth = (float)mViewportPanel->width() / 256.0f;
 		float cellHeight = (float)mViewportPanel->height() / 240.0f;
-		glm::vec4 color;
 
-		mBatchRenderer->begin(mProjectionMatrix, 0.1f, 1);
+		mBatchRenderer->begin(mProjectionMatrix, 0.1f, cellWidth / cellHeight);
 
 		for (size_t y = 0; y < 240; y++) {
 			for (size_t x = 0; x < 256; x++) {
@@ -162,12 +174,13 @@ private:
 	std::shared_ptr<ViewportPanel> mViewportPanel;
 	glm::mat4 mProjectionMatrix;
 	std::shared_ptr<BatchRenderer> mBatchRenderer;
-
+	std::shared_ptr<Cartridge> mCartridge;
 
 	Bus mCPUBus;
 	Bus mPPUBus;
 	VRAM mVRAM;
 	WRAM mWRAM;
+	CartridgeSlot mCartridgeSlot;
 	RP2A03 mCPU;
 	RP2C02 mPPU;
 };

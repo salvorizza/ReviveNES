@@ -6,10 +6,32 @@
 
 namespace NESEmu {
 
-	#define SP_BASE 0x100
-	#define NMI_VEC 0xFFFA
-	#define RESET_VEC 0xFFFC
-	#define IRQ_INT_VEC 0xFFFE
+	constexpr uint16_t SP_BASE = 0x100;
+	constexpr uint16_t NMI_VEC = 0xFFFA;
+	constexpr uint16_t RESET_VEC = 0xFFFC;
+	constexpr uint16_t IRQ_INT_VEC = 0xFFFE;
+
+	constexpr uint16_t SQ1_VOL_ADDR = 0x4000;
+	constexpr uint16_t SQ1_SWEEP_ADDR = 0x4001;
+	constexpr uint16_t SQ1_LO_ADDR = 0x4002;
+	constexpr uint16_t SQ1_HI_ADDR = 0x4003;
+	constexpr uint16_t SQ2_VOL_ADDR = 0x4004;
+	constexpr uint16_t SQ2_SWEEP_ADDR = 0x4005;
+	constexpr uint16_t SQ2_LO_ADDR = 0x4006;
+	constexpr uint16_t SQ2_HI_ADDR = 0x4007;
+	constexpr uint16_t TRI_LINEAR_ADDR = 0x4008;
+	constexpr uint16_t TRI_LO_ADDR = 0x400A;
+	constexpr uint16_t TRI_HI_ADDR = 0x400B;
+	constexpr uint16_t NOISE_VOL_ADDR = 0x400C;
+	constexpr uint16_t NOISE_LO_ADDR = 0x400E;
+	constexpr uint16_t NOISE_HI_ADDR = 0x400F;
+	constexpr uint16_t DMC_FREQ_ADDR = 0x4010;
+	constexpr uint16_t DMC_RAW_ADDR = 0x4011;
+	constexpr uint16_t DMC_START_ADDR = 0x4012;
+	constexpr uint16_t DMC_LEN_ADDR = 0x4013;
+	constexpr uint16_t SND_CHN_ADDR = 0x4015;
+	constexpr uint16_t JOY1_ADDR = 0x4016;
+	constexpr uint16_t JOY2_ADDR = 0x4017;
 
 	typedef class RP2A03;
 	typedef uint8_t(RP2A03::*operate)(void);
@@ -25,7 +47,32 @@ namespace NESEmu {
 		V = 1 << 6,
 		N = 1 << 7
 	};
+	
+	struct PulseChannel {
+		uint8_t VOL;
+		uint8_t SWEEP;
+		uint8_t LO;
+		uint8_t HI;
+	};
 
+	struct TriangleChannel {
+		uint8_t LINEAR;
+		uint8_t LO;
+		uint8_t HI;
+	};
+
+	struct NoiseChannel {
+		uint8_t VOL;
+		uint8_t LO;
+		uint8_t HI;
+	};
+
+	struct DMCChannel {
+		uint8_t FREQ;
+		uint8_t RAW;
+		uint8_t START;
+		uint8_t LEN;
+	};
 
 	struct RP2A03_Registers {
 		uint16_t PC;
@@ -34,6 +81,16 @@ namespace NESEmu {
 		uint8_t Y;
 		uint8_t SP;
 		uint8_t SR;
+
+		PulseChannel SQ1, SQ2;
+		TriangleChannel TRI;
+		NoiseChannel NOISE;
+		DMCChannel DMC;
+
+		uint8_t SND_CHN;
+		uint8_t JOY1, JOY2;
+
+		uint16_t LFSR;
 	};
 
 	struct RP2A03_Instruction {
@@ -41,16 +98,24 @@ namespace NESEmu {
 		operate Operation;
 		addrmode AddressingMode;
 		uint8_t Cycles;
+
+		int32_t opcode = 0x00;
+		int32_t lo = -1;
+		int32_t hi = -1;
+		uint16_t address = 0x0000;
 	};
 
-#define INSTR(o,a,c) {#o,&RP2A03::o,&RP2A03::a,c}
+	#define INSTR(o,a,c) {#o,&RP2A03::o,&RP2A03::a,c}
+
 
 	class RP2A03 : public BusDevice {
 	public:
+
 		RP2A03();
 		~RP2A03();
 
 		void clock();
+		void powerUp();
 		void reset();
 		void irq();
 		void nmi();
@@ -129,9 +194,11 @@ namespace NESEmu {
 		/*Zero Page,Y*/
 		uint8_t ZPY();
 		
-	private:
+	public:
 		RP2A03_Registers mRegisters;
-		uint8_t mCycles;
+		size_t mCyclesToConsume = 0;
+		size_t mCyclesPassed = 0;
+
 		std::vector<RP2A03_Instruction> mInstructionsLookup;
 		uint16_t mAddressAbsolute;
 		int8_t mAddressRelative;

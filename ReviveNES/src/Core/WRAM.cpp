@@ -9,6 +9,8 @@ namespace NESEmu {
 			mMemory()
 	{
 		addRange("CPU", 0x0000, 0x2000, 0x07FF);
+
+		std::memset(mMemory.data(), 0xAA, 0x800);
 	}
 
 	WRAM::~WRAM()

@@ -14,6 +14,30 @@ namespace NESEmu {
 	{
 	}
 
+	void RP2C02::powerUp()
+	{
+		mRegisters.PPUCTRL = 0x00;
+		mRegisters.PPUMASK = 0x00;
+		mRegisters.PPUSTATUS &= ~0xE0;
+		mRegisters.PPUSTATUS |= 0xA0;
+		mRegisters.OAMADDR = 0x00;
+		mRegisters.w = false;
+		mRegisters.PPUSCROLL = 0x0000;
+		mRegisters.PPUADDR = 0x0000;
+		mRegisters.PPUDATA = 0x00;
+		mEvenFrame = true;
+	}
+
+	void RP2C02::reset()
+	{
+		mRegisters.PPUCTRL = 0x00;
+		mRegisters.PPUMASK = 0x00;
+		mRegisters.w = false;
+		mRegisters.PPUSCROLL = 0x0000;
+		mRegisters.PPUDATA = 0x00;
+		mEvenFrame = true;
+	}
+
 	void RP2C02::clock()
 	{		 
 		if (mCycles == 0 && mScanline >= 0 && mScanline <= 239) {
@@ -47,10 +71,12 @@ namespace NESEmu {
 		}
 
 		//RENDERING
-		if (mCycles >= 1 && mCycles <= 256) {
-			uint8_t ppuState = mCycles % 8;
+		if (mScanline >= -1 && mScanline <= 239 && mCycles >= 1 && mCycles <= 256) {
+			if (mCycles <= 256) {
+				uint8_t ppuState = mCycles % 8;
+				uint8_t fineY = (mRegisters.v >> 12) & 0x3;
 
-			switch (ppuState) {
+				switch (ppuState) {
 				case 2:
 					//NT Byte
 					mNTByte = readCurrentTile();
@@ -67,44 +93,92 @@ namespace NESEmu {
 
 				case 6:
 					//BG lsbits
-					mBGplane0 = readBGTilePlanePattern(mNTByte, 0, mScanline % 8);
+					mBGplane0 = readBGTilePlanePattern(mNTByte, 0, fineY);
 					break;
 
 				case 7:
 					//BG msbit
-					mBGplane1 = readBGTilePlanePattern(mNTByte, 1, mScanline % 8);
+					mBGplane1 = readBGTilePlanePattern(mNTByte, 1, fineY);
 					break;
+				}
+			} else if (mCycles <= 320) {
+				//The tile data for the sprites on the next scanline are fetched here.
+			} else if (mCycles <= 336) {
+				//This is where the first two tiles for the next scanline are fetched, and loaded into the shift registers
+				uint8_t ppuState = mCycles % 8;
+				uint8_t fineY = (mRegisters.v >> 12) & 0x3;
+
+				switch (ppuState) {
+				case 2:
+					//NT Byte
+					mNTByte = readCurrentTile();
+					break;
+
+				case 4:
+					//AT Byte
+					mATByte = readCurrentTileAttribute();
+
+					if (((mRegisters.v >> 5) & 0x1F) & 0x02) mATByte >>= 4;
+					if ((mRegisters.v & 0x1F) & 0x02) mATByte >>= 2;
+					mATByte &= 0x03;
+					break;
+
+				case 6:
+					//BG lsbits
+					mBGplane0 = readBGTilePlanePattern(mNTByte, 0, fineY);
+					break;
+
+				case 0:
+					//BG msbit
+					mBGplane1 = readBGTilePlanePattern(mNTByte, 1, fineY);
+
+					mBGPlane0ShiftRegister <<= 8;
+					mBGPlane0ShiftRegister |= mBGplane0;
+
+					mBGPlane1ShiftRegister <<= 8;
+					mBGPlane1ShiftRegister |= mBGplane1;
+
+					mBGPaletteAttributeShiftRegisters[0] = mATByte;
+
+					std::swap(mBGPaletteAttributeShiftRegisters[0], mBGPaletteAttributeShiftRegisters[1]);
+					break;
+				}
+			} else if (mCycles <= 340) {
+				//Two bytes are fetched, but the purpose for this is unknown
+				uint8_t ppuState = mCycles % 2;
+				if (ppuState == 0) {
+					mNTByte = readCurrentTile();
+				}
+			}
+
+			if (mCycles >= 9 && mCycles <= 257) {
+				//Shift registers reloading
+				uint8_t ppuState = mCycles % 8;
+				if (ppuState == 1) {
+					mBGPlane0ShiftRegister &= 0xFF00;
+					mBGPlane0ShiftRegister |= mBGplane0;
+
+					mBGPlane1ShiftRegister &= 0xFF00;
+					mBGPlane1ShiftRegister |= mBGplane1;
+
+					std::swap(mBGPaletteAttributeShiftRegisters[0], mBGPaletteAttributeShiftRegisters[1]);
+
+					mBGPaletteAttributeShiftRegisters[1] = mATByte;
+				}
+			}
+
+			
+			if (mScanline >= 0 && mCycles <= 256) {
+				uint8_t paletteColorIndex = (mBGPlane0ShiftRegister & (1 << (16 - mRegisters.x)) ? 0b01 : 0b00) | (mBGPlane1ShiftRegister & (1 << (16 - mRegisters.x)) ? 0b10 : 0b00);
+				uint8_t paletteIndex = getBus("PPU")->read(0x3F00 + (mBGPaletteAttributeShiftRegisters[0] * 4) + 1 + paletteColorIndex);
+				PaletteColor pixelColor = mPalette[paletteIndex];
+
+				mScreen[mScanline * 256 + (mCycles - 1)] = pixelColor;
+
+				mBGPlane0ShiftRegister <<= 1;
+				mBGPlane1ShiftRegister <<= 1;
 			}
 		}
-
-		if (mCycles >= 9 && mCycles <= 257) {
-			//Shift registers reloading
-			uint8_t ppuState = mCycles % 8;
-			if (ppuState == 1) {
-				mBGPlane0ShiftRegister &= 0xFF00;
-				mBGPlane0ShiftRegister |= mBGplane0;
-
-				mBGPlane1ShiftRegister &= 0xFF00;
-				mBGPlane1ShiftRegister |= mBGplane1;
-
-				std::swap(mBGPaletteAttributeShiftRegisters[0], mBGPaletteAttributeShiftRegisters[1]);
-
-				mBGPaletteAttributeShiftRegisters[1] = mATByte;
-			}
-		}
-
-
-		uint8_t paletteColorIndex = (mBGPlane0ShiftRegister & (1 << (16 - mRegisters.x)) ? 0b01 : 0b00) | (mBGPlane1ShiftRegister & (1 << (16 - mRegisters.x)) ? 0b10 : 0b00);
-		uint8_t paletteIndex = getBus("PPU")->read(0x3F00 + (mBGPaletteAttributeShiftRegisters[0] * 4) + 1 + paletteColorIndex);
-		PaletteColor pixelColor = mPalette[paletteIndex];
-
-		if (mScanline >= 0 && mScanline <= 239 && mCycles >= 1 && mCycles <= 256) {
-			mScreen[mScanline * 256 + (mCycles - 1)] = pixelColor;
-		}
-
-
-		mBGPlane0ShiftRegister <<= 1;
-		mBGPlane1ShiftRegister <<= 1;
 
 		//Scrolling
 		if (mCycles == 256) {
@@ -152,7 +226,6 @@ namespace NESEmu {
 				}
 			}
 		}
-
 
 		if (mCycles == 340 || (!mEvenFrame && mScanline == -1 && mCycles == 339)) {
 			mCycles = 0;

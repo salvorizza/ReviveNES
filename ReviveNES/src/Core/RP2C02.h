@@ -37,12 +37,13 @@ namespace NESEmu {
 	};
 
 	
-
 	class RP2C02 : public BusDevice {
 	public:
 		RP2C02(const Palette& palette);
 		~RP2C02();
 
+		void powerUp();
+		void reset();
 		void clock();
 
 		virtual void write(const std::string& busName, uint16_t address, uint8_t value) override;
@@ -52,7 +53,7 @@ namespace NESEmu {
 		uint8_t readBGTilePlanePattern(uint8_t tile,uint8_t bitPlane,uint8_t fineY);
 		uint8_t readCurrentTile();
 		uint8_t readCurrentTileAttribute();
-	private:
+	public:
 		Palette mPalette;
 		RP2C02_Registers mRegisters;
 		int16_t mScanline = -1;

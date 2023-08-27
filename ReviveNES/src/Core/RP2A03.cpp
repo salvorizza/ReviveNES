@@ -4,7 +4,7 @@ namespace NESEmu {
 	RP2A03::RP2A03()
 		:  BusDevice("RP2A03")
 	{
-		addRange("CPU",0x4000, 0x4018, 0xFFFF);
+		addRange("CPU",0x4000, 0x4020, 0xFFFF);
 
 		mInstructionsLookup = {
 			INSTR(BRK, IMP, 7),INSTR(ORA, IZX, 6),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(ORA, ZP0, 3),INSTR(ASL, ZP0, 5),INSTR(XXX, IMP, 8),INSTR(PHP, IMP, 3),INSTR(ORA, IMM, 2),INSTR(ASL, ACC, 2),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(ORA, ABS, 4),INSTR(ASL, ABS, 6),INSTR(XXX, IMP, 8),
@@ -35,38 +35,81 @@ namespace NESEmu {
 
 	void RP2A03::clock()
 	{
-		if (mCycles == 0) {
+		if (mCyclesToConsume == 0) {
 			if (mNMIPending) {
 				nmi();
 			} else {
 				uint8_t opcode = getBus("CPU")->read(mRegisters.PC);
+				mCurrentInstruction = mInstructionsLookup[opcode];
+				mCurrentInstruction.opcode = opcode;
+				mCurrentInstruction.address = mRegisters.PC;
 				mRegisters.PC++;
 
-				mCurrentInstruction = mInstructionsLookup[opcode];
+
+				mCyclesToConsume = mCurrentInstruction.Cycles;
+				mCyclesPassed += mCurrentInstruction.Cycles;
 
 				uint8_t additionalAddressingModeCycles = (this->*mCurrentInstruction.AddressingMode)();
 				uint8_t additionalOperationCycles = (this->*mCurrentInstruction.Operation)();
 
-				mCycles += additionalOperationCycles & additionalAddressingModeCycles;
+				mCyclesToConsume += (additionalOperationCycles & additionalAddressingModeCycles);
 			}
 		}
 
-		mCycles--;
+		mCyclesToConsume--;
+	}
+
+	void RP2A03::powerUp()
+	{
+		mRegisters.SR = (uint8_t)RP2A03_StatusFlag::U | (uint8_t)RP2A03_StatusFlag::B | (uint8_t)RP2A03_StatusFlag::I;
+		mRegisters.A = mRegisters.X = mRegisters.Y = 0;
+		mRegisters.SP = 0xFD;
+		mRegisters.JOY2 = 0x00;
+		mRegisters.SND_CHN = 0x00;
+
+		mRegisters.SQ1.VOL = 0x00;
+		mRegisters.SQ1.SWEEP = 0x00;
+		mRegisters.SQ1.LO = 0x00;
+		mRegisters.SQ1.HI = 0x00;
+
+		mRegisters.SQ2.VOL = 0x00;
+		mRegisters.SQ2.SWEEP = 0x00;
+		mRegisters.SQ2.LO = 0x00;
+		mRegisters.SQ2.HI = 0x00;
+
+		mRegisters.TRI.LINEAR = 0x00;
+		mRegisters.TRI.LO = 0x00;
+		mRegisters.TRI.HI = 0x00;
+
+		mRegisters.NOISE.VOL = 0x00;
+		mRegisters.NOISE.LO = 0x00;
+		mRegisters.NOISE.HI = 0x00;
+
+		mRegisters.DMC.FREQ = 0x00;
+		mRegisters.DMC.RAW = 0x00;
+		mRegisters.DMC.START = 0x00;
+		mRegisters.DMC.LEN = 0x00;
+
+		mRegisters.LFSR = 0x0000;
 	}
 
 	void RP2A03::reset()
 	{
-		mRegisters.PC = (((uint16_t)getBus("CPU")->read(RESET_VEC)) << 8) | getBus("CPU")->read(RESET_VEC + 1);
-
-		mRegisters.SR = 0x00 | (uint8_t)RP2A03_StatusFlag::U;
-		mRegisters.A = mRegisters.X = mRegisters.Y = 0;
-		mRegisters.SP = 0xFD;
+		//mRegisters.PC = (((uint16_t)getBus("CPU")->read(RESET_VEC)) << 8) | getBus("CPU")->read(RESET_VEC + 1);
+		mRegisters.PC = 0xC000;
 
 		mAddressRelative = 0x0000;
 		mAddressAbsolute = 0x0000;
 		mFetched = 0;
 
-		mCycles = 8;
+		mCyclesToConsume = 8;
+
+		mRegisters.SP -= 0x3;
+		mRegisters.SR |= (uint8_t)RP2A03_StatusFlag::U | (uint8_t)RP2A03_StatusFlag::I;
+		mRegisters.SND_CHN = 0x00;
+		//TODO: APU triangle phase is reset to 0 (i.e. outputs a value of 15, the first step of its waveform)
+		//TODO: APU DPCM output ANDed with 1 (upper 6 bits cleared)
+
 	}
 
 	void RP2A03::irq()
@@ -83,7 +126,7 @@ namespace NESEmu {
 
 			mRegisters.PC = (((uint16_t)getBus("CPU")->read(IRQ_INT_VEC)) << 8) | getBus("CPU")->read(IRQ_INT_VEC + 1);
 		
-			mCycles = 7;
+			mCyclesToConsume = 7;
 		}
 	}
 
@@ -100,7 +143,7 @@ namespace NESEmu {
 
 		mRegisters.PC = (((uint16_t)getBus("CPU")->read(NMI_VEC)) << 8) | getBus("CPU")->read(NMI_VEC + 1);
 
-		mCycles = 8;
+		mCyclesToConsume = 8;
 	}
 
 	void RP2A03::writeLine(const std::string& busName, const std::string& lineName, bool value)
@@ -112,7 +155,7 @@ namespace NESEmu {
 			mNMILine = value;
 		} else if (lineName == "DMA") {
 			if(value)
-				mCycles += 513; //TODO: there is a +1 don't know why
+				mCyclesToConsume += 513; //TODO: there is a +1 don't know why
 		}
 	}
 
@@ -552,8 +595,11 @@ namespace NESEmu {
 
 	uint8_t RP2A03::RTS()
 	{
-		mRegisters.PC = (((uint16_t)getBus("CPU")->read(SP_BASE + mRegisters.SP + 1)) << 8) | getBus("CPU")->read(SP_BASE + mRegisters.SP + 2);
+		uint8_t lo = getBus("CPU")->read(SP_BASE + mRegisters.SP + 1);
+		uint8_t hi = getBus("CPU")->read(SP_BASE + mRegisters.SP + 2);
 		mRegisters.SP += 2;
+
+		mRegisters.PC = (hi << 8) | lo;
 
 		mRegisters.PC++;
 
@@ -563,13 +609,13 @@ namespace NESEmu {
 	uint8_t RP2A03::BCC()
 	{
 		if (getFlag(RP2A03_StatusFlag::C) == 0) {
-			mCycles++;
+			mCyclesToConsume++;
 
 			uint16_t tempPC = mRegisters.PC;
 			mRegisters.PC += mAddressRelative;
 
 			if ((tempPC & 0xFF00) != (mRegisters.PC & 0xFF00))
-				mCycles++;
+				mCyclesToConsume++;
 		}
 
 		return 0;
@@ -578,13 +624,13 @@ namespace NESEmu {
 	uint8_t RP2A03::BCS()
 	{
 		if (getFlag(RP2A03_StatusFlag::C) == 1) {
-			mCycles++;
+			mCyclesToConsume++;
 
 			uint16_t tempPC = mRegisters.PC;
 			mRegisters.PC += mAddressRelative;
 
 			if ((tempPC & 0xFF00) != (mRegisters.PC & 0xFF00))
-				mCycles++;
+				mCyclesToConsume++;
 		}
 
 		return 0;
@@ -593,13 +639,13 @@ namespace NESEmu {
 	uint8_t RP2A03::BEQ()
 	{
 		if (getFlag(RP2A03_StatusFlag::Z) == 1) {
-			mCycles++;
+			mCyclesToConsume++;
 
 			uint16_t tempPC = mRegisters.PC;
 			mRegisters.PC += mAddressRelative;
 
 			if ((tempPC & 0xFF00) != (mRegisters.PC & 0xFF00))
-				mCycles++;
+				mCyclesToConsume++;
 		}
 
 		return 0;
@@ -608,13 +654,13 @@ namespace NESEmu {
 	uint8_t RP2A03::BMI()
 	{
 		if (getFlag(RP2A03_StatusFlag::N) == 1) {
-			mCycles++;
+			mCyclesToConsume++;
 
 			uint16_t tempPC = mRegisters.PC;
 			mRegisters.PC += mAddressRelative;
 
 			if ((tempPC & 0xFF00) != (mRegisters.PC & 0xFF00))
-				mCycles++;
+				mCyclesToConsume++;
 		}
 
 		return 0;
@@ -623,13 +669,13 @@ namespace NESEmu {
 	uint8_t RP2A03::BNE()
 	{
 		if (getFlag(RP2A03_StatusFlag::Z) == 0) {
-			mCycles++;
+			mCyclesToConsume++;
 
 			uint16_t tempPC = mRegisters.PC;
 			mRegisters.PC += mAddressRelative;
 
 			if ((tempPC & 0xFF00) != (mRegisters.PC & 0xFF00))
-				mCycles++;
+				mCyclesToConsume++;
 		}
 
 		return 0;
@@ -638,13 +684,13 @@ namespace NESEmu {
 	uint8_t RP2A03::BPL()
 	{
 		if (getFlag(RP2A03_StatusFlag::N) == 0) {
-			mCycles++;
+			mCyclesToConsume++;
 
 			uint16_t tempPC = mRegisters.PC;
 			mRegisters.PC += mAddressRelative;
 
 			if ((tempPC & 0xFF00) != (mRegisters.PC & 0xFF00))
-				mCycles++;
+				mCyclesToConsume++;
 		}
 
 		return 0;
@@ -653,13 +699,13 @@ namespace NESEmu {
 	uint8_t RP2A03::BVC()
 	{
 		if (getFlag(RP2A03_StatusFlag::V) == 0) {
-			mCycles++;
+			mCyclesToConsume++;
 
 			uint16_t tempPC = mRegisters.PC;
 			mRegisters.PC += mAddressRelative;
 
 			if ((tempPC & 0xFF00) != (mRegisters.PC & 0xFF00))
-				mCycles++;
+				mCyclesToConsume++;
 		}
 
 		return 0;
@@ -668,13 +714,13 @@ namespace NESEmu {
 	uint8_t RP2A03::BVS()
 	{
 		if (getFlag(RP2A03_StatusFlag::V) == 1) {
-			mCycles++;
+			mCyclesToConsume++;
 
 			uint16_t tempPC = mRegisters.PC;
 			mRegisters.PC += mAddressRelative;
 
 			if ((tempPC & 0xFF00) != (mRegisters.PC & 0xFF00))
-				mCycles++;
+				mCyclesToConsume++;
 		}
 
 		return 0;
@@ -751,7 +797,9 @@ namespace NESEmu {
 	uint8_t RP2A03::RTI()
 	{
 		mRegisters.SR = getBus("CPU")->read(SP_BASE + mRegisters.SP + 1);
-		mRegisters.PC = (((uint16_t)getBus("CPU")->read(SP_BASE + mRegisters.SP + 2)) << 8) | getBus("CPU")->read(SP_BASE + mRegisters.SP + 3);
+		uint8_t lo = getBus("CPU")->read(SP_BASE + mRegisters.SP + 2);
+		uint8_t hi = getBus("CPU")->read(SP_BASE + mRegisters.SP + 3);
+		mRegisters.PC = (hi << 8) | lo;
 		mRegisters.SP += 3;
 
 		mRegisters.PC++;
@@ -772,7 +820,13 @@ namespace NESEmu {
 
 	uint8_t RP2A03::ABS()
 	{
-		mAddressAbsolute = (uint16_t)getBus("CPU")->read(mRegisters.PC) | ((uint16_t)getBus("CPU")->read(mRegisters.PC + 1) << 8);
+		uint8_t lo = getBus("CPU")->read(mRegisters.PC);
+		uint8_t hi = getBus("CPU")->read(mRegisters.PC + 1);
+
+		mCurrentInstruction.lo = lo;
+		mCurrentInstruction.hi = hi;
+
+		mAddressAbsolute = (hi << 8) | lo;
 		mRegisters.PC += 2;
 
 		return 0;
@@ -780,7 +834,13 @@ namespace NESEmu {
 
 	uint8_t RP2A03::ABX()
 	{
-		uint16_t address = (uint16_t)getBus("CPU")->read(mRegisters.PC) | ((uint16_t)getBus("CPU")->read(mRegisters.PC + 1) << 8);
+		uint8_t lo = getBus("CPU")->read(mRegisters.PC);
+		uint8_t hi = getBus("CPU")->read(mRegisters.PC + 1);
+
+		mCurrentInstruction.lo = lo;
+		mCurrentInstruction.hi = hi;
+
+		uint16_t address = (hi << 8) | lo;
 		mRegisters.PC += 2;
 
 		mAddressAbsolute = address + mRegisters.X;
@@ -790,7 +850,13 @@ namespace NESEmu {
 
 	uint8_t RP2A03::ABY()
 	{
-		uint16_t address = (uint16_t)getBus("CPU")->read(mRegisters.PC) | ((uint16_t)getBus("CPU")->read(mRegisters.PC + 1) << 8);
+		uint8_t lo = getBus("CPU")->read(mRegisters.PC);
+		uint8_t hi = getBus("CPU")->read(mRegisters.PC + 1);
+
+		mCurrentInstruction.lo = lo;
+		mCurrentInstruction.hi = hi;
+
+		uint16_t address = (hi << 8) | lo;
 		mRegisters.PC += 2;
 
 		mAddressAbsolute = address + mRegisters.Y;
@@ -800,7 +866,12 @@ namespace NESEmu {
 
 	uint8_t RP2A03::IMM()
 	{
+		mCurrentInstruction.lo = mRegisters.PC;
+
 		mAddressAbsolute = mRegisters.PC;
+
+		mCurrentInstruction.lo = getBus("CPU")->read(mAddressAbsolute);
+
 		mRegisters.PC++;
 
 		return 0;
@@ -813,7 +884,13 @@ namespace NESEmu {
 
 	uint8_t RP2A03::IND()
 	{
-		uint16_t address = (uint16_t)getBus("CPU")->read(mRegisters.PC) | ((uint16_t)getBus("CPU")->read(mRegisters.PC + 1) << 8);
+		uint8_t lo = getBus("CPU")->read(mRegisters.PC);
+		uint8_t hi = getBus("CPU")->read(mRegisters.PC + 1);
+
+		mCurrentInstruction.lo = lo;
+		mCurrentInstruction.hi = hi;
+
+		uint16_t address = (hi << 8) | lo;
 		mRegisters.PC += 2;
 
 		mAddressAbsolute = (uint16_t)getBus("CPU")->read(address) | ((uint16_t)getBus("CPU")->read(address + 1) << 8);
@@ -823,40 +900,57 @@ namespace NESEmu {
 
 	uint8_t RP2A03::IZX()
 	{
-		uint16_t arg = getBus("CPU")->read(mRegisters.PC);
+		uint8_t lo = getBus("CPU")->read(mRegisters.PC);
+
+		mCurrentInstruction.lo = lo;
+
 		mRegisters.PC++;
 
-		mAddressAbsolute = (uint16_t)getBus("CPU")->read((arg + mRegisters.X) & 0xFF) | ((uint16_t)getBus("CPU")->read((arg + mRegisters.X + 1) & 0xFF) << 8);
+		mAddressAbsolute = (uint16_t)getBus("CPU")->read((lo + mRegisters.X) & 0xFF) | ((uint16_t)getBus("CPU")->read((lo + mRegisters.X + 1) & 0xFF) << 8);
 
 		return 0;
 	}
 	uint8_t RP2A03::IZY()
 	{
-		uint16_t arg = getBus("CPU")->read(mRegisters.PC);
+		uint8_t lo = getBus("CPU")->read(mRegisters.PC);
 		mRegisters.PC++;
 
-		uint16_t address = (uint16_t)getBus("CPU")->read(arg) | ((uint16_t)getBus("CPU")->read((arg + 1) & 0xFF) << 8);
+		mCurrentInstruction.lo = lo;
+
+		uint16_t address = (uint16_t)getBus("CPU")->read(lo) | ((uint16_t)getBus("CPU")->read((lo + 1) & 0xFF) << 8);
 		mAddressAbsolute = address + mRegisters.Y;
 
 		return (address & 0xFF00) != (mAddressAbsolute & 0xFF00);
 	}
 	uint8_t RP2A03::REL()
 	{
-		mAddressRelative = getBus("CPU")->read(mRegisters.PC);
+		uint8_t lo = getBus("CPU")->read(mRegisters.PC);
+
+		mCurrentInstruction.lo = lo;
+
+		mAddressRelative = lo;
 		mRegisters.PC++;
 
 		return 0;
 	}
 	uint8_t RP2A03::ZP0()
 	{
-		mAddressAbsolute = getBus("CPU")->read(mRegisters.PC);
+		uint8_t lo = getBus("CPU")->read(mRegisters.PC);
+
+		mCurrentInstruction.lo = lo;
+
+		mAddressAbsolute = lo;
 		mRegisters.PC++;
 
 		return 0;
 	}
 	uint8_t RP2A03::ZPX()
 	{
-		uint16_t address = getBus("CPU")->read(mRegisters.PC);
+		uint8_t lo = getBus("CPU")->read(mRegisters.PC);
+
+		mCurrentInstruction.lo = lo;
+
+		uint16_t address = lo;
 		mRegisters.PC++;
 
 		mAddressAbsolute = (address + mRegisters.X) & 0xFF;
@@ -865,7 +959,11 @@ namespace NESEmu {
 	}
 	uint8_t RP2A03::ZPY()
 	{
-		uint16_t address = getBus("CPU")->read(mRegisters.PC);
+		uint8_t lo = getBus("CPU")->read(mRegisters.PC);
+
+		mCurrentInstruction.lo = lo;
+
+		uint16_t address = lo;
 		mRegisters.PC++;
 
 		mAddressAbsolute = (address + mRegisters.Y) & 0xFF;

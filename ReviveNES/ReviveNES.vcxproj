@@ -142,6 +142,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="src\Base\Bus.h" />
+    <ClInclude Include="src\Core\CartridgeSlot.h" />
     <ClInclude Include="src\Core\RP2A03.h" />
     <ClInclude Include="src\Core\RP2C02.h" />
     <ClInclude Include="src\Core\VRAM.h" />
@@ -162,10 +163,12 @@
     <ClInclude Include="src\UI\Window\ImGuiManager.h" />
     <ClInclude Include="src\UI\Window\InputManager.h" />
     <ClInclude Include="src\UI\Window\Window.h" />
+    <ClInclude Include="src\Utils\Cartridge.h" />
     <ClInclude Include="src\Utils\Palette.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Base\Bus.cpp" />
+    <ClCompile Include="src\Core\CartridgeSlot.cpp" />
     <ClCompile Include="src\Core\RP2A03.cpp" />
     <ClCompile Include="src\Core\RP2C02.cpp" />
     <ClCompile Include="src\Core\VRAM.cpp" />
@@ -183,6 +186,7 @@
     <ClCompile Include="src\UI\Window\ImGuiManager.cpp" />
     <ClCompile Include="src\UI\Window\InputManager.cpp" />
     <ClCompile Include="src\UI\Window\Window.cpp" />
+    <ClCompile Include="src\Utils\Cartridge.cpp" />
     <ClCompile Include="src\Utils\Palette.cpp" />
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>

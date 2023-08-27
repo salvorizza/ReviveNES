@@ -93,6 +93,8 @@
     <ClInclude Include="src\Utils\Palette.h">
       <Filter>Utils</Filter>
     </ClInclude>
+    <ClInclude Include="src\Utils\Cartridge.h" />
+    <ClInclude Include="src\Core\CartridgeSlot.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Base\Bus.cpp">
@@ -153,5 +155,7 @@
       <Filter>Utils</Filter>
     </ClCompile>
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\Utils\Cartridge.cpp" />
+    <ClCompile Include="src\Core\CartridgeSlot.cpp" />
   </ItemGroup>
 </Project>

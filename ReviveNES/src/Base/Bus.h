@@ -9,11 +9,11 @@
 namespace NESEmu {
 
 	struct BusRange {
-		uint16_t Start;
-		uint16_t End;
+		uint32_t Start;
+		uint32_t End;
 		uint16_t Mask;
 
-		BusRange(uint16_t start,uint16_t end,uint16_t mask)
+		BusRange(uint32_t start, uint32_t end,uint16_t mask)
 			:	Start(start),
 				End(end),
 				Mask(mask)
