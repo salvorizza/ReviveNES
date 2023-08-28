@@ -4,6 +4,8 @@
 #include "Core/RP2C02.h"
 
 #include <array>
+#include <sstream>
+#include <iomanip>
 
 namespace NESEmu {
 
@@ -154,7 +156,7 @@ namespace NESEmu {
 		/*System Functions*/
 		uint8_t BRK(); uint8_t NOP(); uint8_t RTI();
 		/*Unknown*/
-		uint8_t XXX();
+		uint8_t XXX(); uint8_t LAX();
 
 		/*Accumulator*/
 		uint8_t ACC();

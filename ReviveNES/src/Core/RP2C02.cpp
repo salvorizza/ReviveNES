@@ -227,7 +227,7 @@ namespace NESEmu {
 			}
 		}
 
-		if (mCycles == 340 || (!mEvenFrame && mScanline == -1 && mCycles == 339)) {
+		if (mCycles == 341 || (!mEvenFrame && mScanline == -1 && mCycles == 339)) {
 			mCycles = 0;
 			mScanline++;
 			if (mScanline > 260) {

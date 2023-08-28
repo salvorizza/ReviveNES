@@ -1,28 +1,35 @@
 #include "RP2A03.h"
 
 namespace NESEmu {
+	static std::string disHex(uint32_t n, uint8_t d) {
+		std::string s(d, '0');
+		for (int i = d - 1; i >= 0; i--, n >>= 4)
+			s[i] = "0123456789ABCDEF"[n & 0xF];
+		return s;
+	}
+
 	RP2A03::RP2A03()
 		:  BusDevice("RP2A03")
 	{
 		addRange("CPU",0x4000, 0x4020, 0xFFFF);
 
 		mInstructionsLookup = {
-			INSTR(BRK, IMP, 7),INSTR(ORA, IZX, 6),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(ORA, ZP0, 3),INSTR(ASL, ZP0, 5),INSTR(XXX, IMP, 8),INSTR(PHP, IMP, 3),INSTR(ORA, IMM, 2),INSTR(ASL, ACC, 2),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(ORA, ABS, 4),INSTR(ASL, ABS, 6),INSTR(XXX, IMP, 8),
-			INSTR(BPL, REL, 2),INSTR(ORA, IZY, 5),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(ORA, ZPX, 4),INSTR(ASL, ZPX, 6),INSTR(XXX, IMP, 8),INSTR(CLC, IMP, 2),INSTR(ORA, ABY, 4),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(ORA, ABX, 4),INSTR(ASL, ABX, 7),INSTR(XXX, IMP, 8),
+			INSTR(BRK, IMP, 7),INSTR(ORA, IZX, 6),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(NOP, IMM, 3),INSTR(ORA, ZP0, 3),INSTR(ASL, ZP0, 5),INSTR(XXX, IMP, 8),INSTR(PHP, IMP, 3),INSTR(ORA, IMM, 2),INSTR(ASL, ACC, 2),INSTR(XXX, IMP, 8),INSTR(NOP, ABS, 4),INSTR(ORA, ABS, 4),INSTR(ASL, ABS, 6),INSTR(XXX, IMP, 8),
+			INSTR(BPL, REL, 2),INSTR(ORA, IZY, 5),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(NOP, ZPX, 4),INSTR(ORA, ZPX, 4),INSTR(ASL, ZPX, 6),INSTR(XXX, IMP, 8),INSTR(CLC, IMP, 2),INSTR(ORA, ABY, 4),INSTR(NOP, IMP, 2),INSTR(XXX, IMP, 8),INSTR(NOP, ABX, 4),INSTR(ORA, ABX, 4),INSTR(ASL, ABX, 7),INSTR(XXX, IMP, 8),
 			INSTR(JSR, ABS, 6),INSTR(AND, IZX, 6),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(BIT, ZP0, 3),INSTR(AND, ZP0, 3),INSTR(ROL, ZP0, 5),INSTR(XXX, IMP, 8),INSTR(PLP, IMP, 4),INSTR(AND, IMM, 2),INSTR(ROL, ACC, 2),INSTR(XXX, IMP, 8),INSTR(BIT, ABS, 4),INSTR(AND, ABS, 4),INSTR(ROL, ABS, 6),INSTR(XXX, IMP, 8),
-			INSTR(BMI, REL, 2),INSTR(AND, IZY, 5),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(AND, ZPX, 4),INSTR(ROL, ZPX, 6),INSTR(XXX, IMP, 8),INSTR(SEC, IMP, 2),INSTR(AND, ABY, 4),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(AND, ABX, 4),INSTR(ROL, ABX, 7),INSTR(XXX, IMP, 8),
-			INSTR(RTI, IMP, 6),INSTR(EOR, IZX, 6),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(EOR, ZP0, 3),INSTR(LSR, ZP0, 5),INSTR(XXX, IMP, 8),INSTR(PHA, IMP, 3),INSTR(EOR, IMM, 2),INSTR(LSR, ACC, 2),INSTR(XXX, IMP, 8),INSTR(JMP, ABS, 3),INSTR(EOR, ABS, 4),INSTR(LSR, ABS, 6),INSTR(XXX, IMP, 8),
-			INSTR(BVC, REL, 2),INSTR(EOR, IZY, 5),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(EOR, ZPX, 4),INSTR(LSR, ZPX, 6),INSTR(XXX, IMP, 8),INSTR(CLI, IMP, 2),INSTR(EOR, ABY, 4),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(EOR, ABX, 4),INSTR(LSR, ABX, 7),INSTR(XXX, IMP, 8),
-			INSTR(RTS, IMP, 6),INSTR(ADC, IZX, 6),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(ADC, ZP0, 3),INSTR(ROR, ZP0, 5),INSTR(XXX, IMP, 8),INSTR(PLA, IMP, 4),INSTR(ADC, IMM, 2),INSTR(ROR, ACC, 2),INSTR(XXX, IMP, 8),INSTR(JMP, IND, 5),INSTR(ADC, ABS, 4),INSTR(ROR, ABS, 6),INSTR(XXX, IMP, 8),
-			INSTR(BVS, REL, 2),INSTR(ADC, IZY, 5),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(ADC, ZPX, 4),INSTR(ROR, ZPX, 6),INSTR(XXX, IMP, 8),INSTR(SEI, IMP, 2),INSTR(ADC, ABY, 4),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(ADC, ABX, 4),INSTR(ROR, ABX, 7),INSTR(XXX, IMP, 8),
-			INSTR(XXX, IMP, 8),INSTR(STA, IZX, 6),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(STY, ZP0, 3),INSTR(STA, ZP0, 3),INSTR(STX, ZP0, 3),INSTR(XXX, IMP, 8),INSTR(DEY, IMP, 2),INSTR(XXX, IMP, 8),INSTR(TXA, IMP, 2),INSTR(XXX, IMP, 8),INSTR(STY, ABS, 4),INSTR(STA, ABS, 4),INSTR(STX, ABS, 4),INSTR(XXX, IMP, 8),
-			INSTR(BCC, REL, 2),INSTR(STA, IZY, 6),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(STY, ZPX, 4),INSTR(STA, ZPX, 4),INSTR(STX, ZPY, 4),INSTR(XXX, IMP, 8),INSTR(TYA, IMP, 2),INSTR(STA, ABY, 5),INSTR(TXS, IMP, 2),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(STA, ABX, 5),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),
-			INSTR(LDY, IMM, 2),INSTR(LDA, IZX, 6),INSTR(LDX, IMM, 2),INSTR(XXX, IMP, 8),INSTR(LDY, ZP0, 3),INSTR(LDA, ZP0, 3),INSTR(LDX, ZP0, 3),INSTR(XXX, IMP, 8),INSTR(TAY, IMP, 2),INSTR(LDA, IMM, 2),INSTR(TAX, IMP, 2),INSTR(XXX, IMP, 8),INSTR(LDY, ABS, 4),INSTR(LDA, ABS, 4),INSTR(LDX, ABS, 4),INSTR(XXX, IMP, 8),
-			INSTR(BCS, REL, 2),INSTR(LDA, IZY, 5),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(LDY, ZPX, 4),INSTR(LDA, ZPX, 4),INSTR(LDX, ZPY, 4),INSTR(XXX, IMP, 8),INSTR(CLV, IMP, 2),INSTR(LDA, ABY, 4),INSTR(TSX, IMP, 2),INSTR(XXX, IMP, 8),INSTR(LDY, ABX, 4),INSTR(LDA, ABX, 4),INSTR(LDX, ABY, 4),INSTR(XXX, IMP, 8),
+			INSTR(BMI, REL, 2),INSTR(AND, IZY, 5),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(NOP, ZPX, 4),INSTR(AND, ZPX, 4),INSTR(ROL, ZPX, 6),INSTR(XXX, IMP, 8),INSTR(SEC, IMP, 2),INSTR(AND, ABY, 4),INSTR(NOP, IMP, 2),INSTR(XXX, IMP, 8),INSTR(NOP, ABX, 4),INSTR(AND, ABX, 4),INSTR(ROL, ABX, 7),INSTR(XXX, IMP, 8),
+			INSTR(RTI, IMP, 6),INSTR(EOR, IZX, 6),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(NOP, IMM, 3),INSTR(EOR, ZP0, 3),INSTR(LSR, ZP0, 5),INSTR(XXX, IMP, 8),INSTR(PHA, IMP, 3),INSTR(EOR, IMM, 2),INSTR(LSR, ACC, 2),INSTR(XXX, IMP, 8),INSTR(JMP, ABS, 3),INSTR(EOR, ABS, 4),INSTR(LSR, ABS, 6),INSTR(XXX, IMP, 8),
+			INSTR(BVC, REL, 2),INSTR(EOR, IZY, 5),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(NOP, ZPX, 4),INSTR(EOR, ZPX, 4),INSTR(LSR, ZPX, 6),INSTR(XXX, IMP, 8),INSTR(CLI, IMP, 2),INSTR(EOR, ABY, 4),INSTR(NOP, IMP, 2),INSTR(XXX, IMP, 8),INSTR(NOP, ABX, 4),INSTR(EOR, ABX, 4),INSTR(LSR, ABX, 7),INSTR(XXX, IMP, 8),
+			INSTR(RTS, IMP, 6),INSTR(ADC, IZX, 6),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(NOP, IMM, 3),INSTR(ADC, ZP0, 3),INSTR(ROR, ZP0, 5),INSTR(XXX, IMP, 8),INSTR(PLA, IMP, 4),INSTR(ADC, IMM, 2),INSTR(ROR, ACC, 2),INSTR(XXX, IMP, 8),INSTR(JMP, IND, 5),INSTR(ADC, ABS, 4),INSTR(ROR, ABS, 6),INSTR(XXX, IMP, 8),
+			INSTR(BVS, REL, 2),INSTR(ADC, IZY, 5),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(NOP, ZPX, 4),INSTR(ADC, ZPX, 4),INSTR(ROR, ZPX, 6),INSTR(XXX, IMP, 8),INSTR(SEI, IMP, 2),INSTR(ADC, ABY, 4),INSTR(NOP, IMP, 2),INSTR(XXX, IMP, 8),INSTR(NOP, ABX, 4),INSTR(ADC, ABX, 4),INSTR(ROR, ABX, 7),INSTR(XXX, IMP, 8),
+			INSTR(NOP, IMM, 2),INSTR(STA, IZX, 6),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(STY, ZP0, 3),INSTR(STA, ZP0, 3),INSTR(STX, ZP0, 3),INSTR(XXX, IMP, 8),INSTR(DEY, IMP, 2),INSTR(XXX, IMP, 8),INSTR(TXA, IMP, 2),INSTR(XXX, IMP, 8),INSTR(STY, ABS, 4),INSTR(STA, ABS, 4),INSTR(STX, ABS, 4),INSTR(XXX, IMP, 8),
+			INSTR(BCC, REL, 2),INSTR(STA, IZY, 6),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(STY, ZPX, 4),INSTR(STA, ZPX, 4),INSTR(STX, ZPY, 4),INSTR(XXX, IMP, 8),INSTR(TYA, IMP, 2),INSTR(STA, ABY, 5),INSTR(TXS, IMP, 2),INSTR(XXX, IMP, 8),INSTR(NOP, ABX, 4),INSTR(STA, ABX, 5),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),
+			INSTR(LDY, IMM, 2),INSTR(LDA, IZX, 6),INSTR(LDX, IMM, 2),INSTR(LAX, IZX, 6),INSTR(LDY, ZP0, 3),INSTR(LDA, ZP0, 3),INSTR(LDX, ZP0, 3),INSTR(LAX, ZP0, 3),INSTR(TAY, IMP, 2),INSTR(LDA, IMM, 2),INSTR(TAX, IMP, 2),INSTR(XXX, IMP, 8),INSTR(LDY, ABS, 4),INSTR(LDA, ABS, 4),INSTR(LDX, ABS, 4),INSTR(LAX, ABS, 4),
+			INSTR(BCS, REL, 2),INSTR(LDA, IZY, 5),INSTR(XXX, IMP, 8),INSTR(LAX, IZY, 5),INSTR(LDY, ZPX, 4),INSTR(LDA, ZPX, 4),INSTR(LDX, ZPY, 4),INSTR(LAX, ZPY, 4),INSTR(CLV, IMP, 2),INSTR(LDA, ABY, 4),INSTR(TSX, IMP, 2),INSTR(XXX, IMP, 8),INSTR(LDY, ABX, 4),INSTR(LDA, ABX, 4),INSTR(LDX, ABY, 4),INSTR(LAX, ABY, 4),
 			INSTR(CPY, IMM, 2),INSTR(CMP, IZX, 6),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(CPY, ZP0, 3),INSTR(CMP, ZP0, 3),INSTR(DEC, ZP0, 5),INSTR(XXX, IMP, 8),INSTR(INY, IMP, 2),INSTR(CMP, IMM, 2),INSTR(DEX, IMP, 2),INSTR(XXX, IMP, 8),INSTR(CPY, ABS, 4),INSTR(CMP, ABS, 4),INSTR(DEC, ABS, 6),INSTR(XXX, IMP, 8),
-			INSTR(BNE, REL, 2),INSTR(CMP, IZY, 5),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(CMP, ZPX, 4),INSTR(DEC, ZPX, 6),INSTR(XXX, IMP, 8),INSTR(CLD, IMP, 2),INSTR(CMP, ABY, 4),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(CMP, ABX, 4),INSTR(DEC, ABX, 7),INSTR(XXX, IMP, 8),
+			INSTR(BNE, REL, 2),INSTR(CMP, IZY, 5),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(NOP, ZPX, 4),INSTR(CMP, ZPX, 4),INSTR(DEC, ZPX, 6),INSTR(XXX, IMP, 8),INSTR(CLD, IMP, 2),INSTR(CMP, ABY, 4),INSTR(NOP, IMP, 2),INSTR(XXX, IMP, 8),INSTR(NOP, ABX, 4),INSTR(CMP, ABX, 4),INSTR(DEC, ABX, 7),INSTR(XXX, IMP, 8),
 			INSTR(CPX, IMM, 2),INSTR(SBC, IZX, 6),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(CPX, ZP0, 3),INSTR(SBC, ZP0, 3),INSTR(INC, ZP0, 5),INSTR(XXX, IMP, 8),INSTR(INX, IMP, 2),INSTR(SBC, IMM, 2),INSTR(NOP, IMP, 2),INSTR(XXX, IMP, 8),INSTR(CPX, ABS, 4),INSTR(SBC, ABS, 4),INSTR(INC, ABS, 6),INSTR(XXX, IMP, 8),
-			INSTR(BEQ, REL, 2),INSTR(SBC, IZY, 5),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(SBC, ZPX, 4),INSTR(INC, ZPX, 5),INSTR(XXX, IMP, 8),INSTR(SED, IMP, 2),INSTR(SBC, ABY, 4),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(SBC, ABX, 4),INSTR(INC, ABX, 7),INSTR(XXX, IMP, 8)
+			INSTR(BEQ, REL, 2),INSTR(SBC, IZY, 5),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(NOP, ZPX, 4),INSTR(SBC, ZPX, 4),INSTR(INC, ZPX, 6),INSTR(XXX, IMP, 8),INSTR(SED, IMP, 2),INSTR(SBC, ABY, 4),INSTR(NOP, IMP, 2),INSTR(XXX, IMP, 8),INSTR(NOP, ABX, 4),INSTR(SBC, ABX, 4),INSTR(INC, ABX, 7),INSTR(XXX, IMP, 8)
 		};
 
 		mRegisters.SR = 0x34;
@@ -50,6 +57,16 @@ namespace NESEmu {
 
 				uint8_t additionalAddressingModeCycles = (this->*mCurrentInstruction.AddressingMode)();
 
+				if (mCurrentInstruction.Operation == &RP2A03::STA || 
+					mCurrentInstruction.Operation == &RP2A03::BIT) {
+
+					mCurrentInstruction.Mnemonic += " = " + disHex(mRegisters.A, 2);
+				} else if (mCurrentInstruction.Operation == &RP2A03::STX) {
+					mCurrentInstruction.Mnemonic += " = " + disHex(mRegisters.X,2);
+				} else if (mCurrentInstruction.Operation == &RP2A03::STY) {
+					mCurrentInstruction.Mnemonic += " = " + disHex(mRegisters.Y, 2);
+				}
+
 #if 1
 				printf("%04X  %02X ", mCurrentInstruction.address, mCurrentInstruction.opcode);
 				if (mCurrentInstruction.lo != -1) {
@@ -64,9 +81,9 @@ namespace NESEmu {
 				else {
 					printf("   ");
 				}
-				printf("%s ", mCurrentInstruction.Mnemonic.c_str());
+				printf(" %-31s ", mCurrentInstruction.Mnemonic.c_str());
 
-				printf("A:%02X X:%02X Y:%02X P:%02X SP:%02X PPU: %2d,%3d", mRegisters.A, mRegisters.X, mRegisters.Y, mRegisters.SR, mRegisters.SP, ppu.mScanline, ppu.mCycles);
+				printf("A:%02X X:%02X Y:%02X P:%02X SP:%02X PPU:%3d,%3d", mRegisters.A, mRegisters.X, mRegisters.Y, mRegisters.SR, mRegisters.SP, ppu.mScanline, ppu.mCycles);
 				printf(" CYC:%zd", mCyclesPassed);
 
 				printf("\n");
@@ -119,7 +136,7 @@ namespace NESEmu {
 
 	void RP2A03::reset()
 	{
-		//mRegisters.PC = (((uint16_t)getBus("CPU")->read(RESET_VEC)) << 8) | getBus("CPU")->read(RESET_VEC + 1);
+		//mRegisters.PC = (((uint16_t)getBus("CPU")->read(RESET_VEC + 1)) << 8) | getBus("CPU")->read(RESET_VEC);
 		mRegisters.PC = 0xC000;
 
 		mAddressRelative = 0x0000;
@@ -128,8 +145,8 @@ namespace NESEmu {
 
 		mCyclesToConsume = 7;
 
-		mRegisters.SP -= 0x3;
-		mRegisters.SR |= (uint8_t)RP2A03_StatusFlag::I;
+		mRegisters.SP = 0xFD;
+		mRegisters.SR |= (uint8_t)RP2A03_StatusFlag::I | (uint8_t)RP2A03_StatusFlag::U;
 		mRegisters.SND_CHN = 0x00;
 		//TODO: APU triangle phase is reset to 0 (i.e. outputs a value of 15, the first step of its waveform)
 		//TODO: APU DPCM output ANDed with 1 (upper 6 bits cleared)
@@ -148,7 +165,7 @@ namespace NESEmu {
 			getBus("CPU")->write(SP_BASE + mRegisters.SP - 2, mRegisters.SR);
 			mRegisters.SP -= 3;
 
-			mRegisters.PC = (((uint16_t)getBus("CPU")->read(IRQ_INT_VEC)) << 8) | getBus("CPU")->read(IRQ_INT_VEC + 1);
+			mRegisters.PC = (((uint16_t)getBus("CPU")->read(IRQ_INT_VEC + 1)) << 8) | getBus("CPU")->read(IRQ_INT_VEC);
 		
 			mCyclesToConsume = 7;
 		}
@@ -165,7 +182,7 @@ namespace NESEmu {
 		getBus("CPU")->write(SP_BASE + mRegisters.SP - 2, mRegisters.SR);
 		mRegisters.SP -= 3;
 
-		mRegisters.PC = (((uint16_t)getBus("CPU")->read(NMI_VEC)) << 8) | getBus("CPU")->read(NMI_VEC + 1);
+		mRegisters.PC = (((uint16_t)getBus("CPU")->read(NMI_VEC + 1)) << 8) | getBus("CPU")->read(NMI_VEC);
 
 		mCyclesToConsume = 8;
 	}
@@ -331,7 +348,7 @@ namespace NESEmu {
 
 	uint8_t RP2A03::PHP()
 	{
-		getBus("CPU")->write(SP_BASE + mRegisters.SP, mRegisters.SR);
+		getBus("CPU")->write(SP_BASE + mRegisters.SP, mRegisters.SR | (uint8_t)RP2A03_StatusFlag::B);
 		mRegisters.SP--;
 
 		return 0;
@@ -352,6 +369,9 @@ namespace NESEmu {
 	{
 		mRegisters.SR = getBus("CPU")->read(SP_BASE + mRegisters.SP + 1);
 		mRegisters.SP++;
+
+		setFlag(RP2A03_StatusFlag::B, 0);
+		setFlag(RP2A03_StatusFlag::U, 1);
 
 		return 0;
 	}
@@ -409,9 +429,9 @@ namespace NESEmu {
 
 		mRegisters.A = s & 0xFF;
 
-		setFlag(RP2A03_StatusFlag::C, (s & 0xFF00) == 0);
+		setFlag(RP2A03_StatusFlag::C, (s & 0xFF00) != 0);
 		setFlag(RP2A03_StatusFlag::Z, mRegisters.A == 0);
-		setFlag(RP2A03_StatusFlag::V, ((a ^ s) & (m ^ s) & 0x80) > 0);
+		setFlag(RP2A03_StatusFlag::V, ((a ^ s) & (m ^ s) & 0x80) != 0);
 		setFlag(RP2A03_StatusFlag::N, s & 0x80);
 
 		return 1;
@@ -420,15 +440,16 @@ namespace NESEmu {
 	uint8_t RP2A03::SBC()
 	{
 		uint8_t c = getFlag(RP2A03_StatusFlag::C);
-		uint8_t m = fetch();
+		uint8_t m = fetch() ^ 0xFF;
 		uint8_t a = mRegisters.A;
-		uint16_t s = a - m - (1 - c);
+
+		uint16_t s = a + m + c;
 
 		mRegisters.A = s & 0xFF;
 
-		setFlag(RP2A03_StatusFlag::C, (s & 0xFF00) > 0);
+		setFlag(RP2A03_StatusFlag::C, (s & 0xFF00) != 0);
 		setFlag(RP2A03_StatusFlag::Z, mRegisters.A == 0);
-		setFlag(RP2A03_StatusFlag::V, ((a ^ s) & (m ^ s) & 0x80) > 0);
+		setFlag(RP2A03_StatusFlag::V, ((a ^ s) & (m ^ s) & 0x80) != 0);
 		setFlag(RP2A03_StatusFlag::N, s & 0x80);
 
 		return 1;
@@ -538,26 +559,36 @@ namespace NESEmu {
 
 	uint8_t RP2A03::ASL()
 	{
-		uint8_t a = mRegisters.A;
+		uint8_t temp = fetch();
 
-		mRegisters.A <<= 1;
+		uint8_t result = temp << 1;
 
-		setFlag(RP2A03_StatusFlag::C, a & 0x80);
-		setFlag(RP2A03_StatusFlag::Z, mRegisters.A == 0);
-		setFlag(RP2A03_StatusFlag::N, mRegisters.A & 0x80);
+		if (mCurrentInstruction.AddressingMode == &RP2A03::ACC)
+			mRegisters.A = result;
+		else
+			getBus("CPU")->write(mAddressAbsolute, result);
+
+		setFlag(RP2A03_StatusFlag::C, temp & 0x80);
+		setFlag(RP2A03_StatusFlag::Z, result == 0);
+		setFlag(RP2A03_StatusFlag::N, result & 0x80);
 
 		return 0;
 	}
 
 	uint8_t RP2A03::LSR()
 	{
-		uint8_t a = mRegisters.A;
+		uint8_t temp = fetch();
 
-		mRegisters.A >>= 1;
+		uint8_t result = temp >> 1;
 
-		setFlag(RP2A03_StatusFlag::C, a & 0x1);
-		setFlag(RP2A03_StatusFlag::Z, mRegisters.A == 0);
-		setFlag(RP2A03_StatusFlag::N, mRegisters.A & 0x80);
+		if (mCurrentInstruction.AddressingMode == &RP2A03::ACC)
+			mRegisters.A = result;
+		else
+			getBus("CPU")->write(mAddressAbsolute, result);
+
+		setFlag(RP2A03_StatusFlag::C, temp & 0x1);
+		setFlag(RP2A03_StatusFlag::Z, result == 0);
+		setFlag(RP2A03_StatusFlag::N, result & 0x80);
 
 		return 0;
 	}
@@ -816,7 +847,7 @@ namespace NESEmu {
 
 	uint8_t RP2A03::NOP()
 	{
-		return 0;
+		return 1;
 	}
 
 	uint8_t RP2A03::RTI()
@@ -827,7 +858,8 @@ namespace NESEmu {
 		mRegisters.PC = (hi << 8) | lo;
 		mRegisters.SP += 3;
 
-		mRegisters.PC++;
+		setFlag(RP2A03_StatusFlag::U, 1);
+		setFlag(RP2A03_StatusFlag::B, 0);
 
 		return 0;
 	}
@@ -837,9 +869,23 @@ namespace NESEmu {
 		return 0;
 	}
 
+	uint8_t RP2A03::LAX()
+	{
+		mRegisters.A = fetch();
+		mRegisters.X = fetch();
+
+		setFlag(RP2A03_StatusFlag::Z, mRegisters.A == 0);
+		setFlag(RP2A03_StatusFlag::N, mRegisters.A & 0x80);
+
+		return 1;
+	}
+
 	uint8_t RP2A03::ACC()
 	{
 		mFetched = mRegisters.A;
+
+		mCurrentInstruction.Mnemonic += " A";
+
 		return 0;
 	}
 
@@ -854,6 +900,8 @@ namespace NESEmu {
 		mAddressAbsolute = (hi << 8) | lo;
 		mRegisters.PC += 2;
 
+		mCurrentInstruction.Mnemonic += " $" + disHex(mAddressAbsolute, 4);
+
 		return 0;
 	}
 
@@ -867,6 +915,8 @@ namespace NESEmu {
 
 		uint16_t address = (hi << 8) | lo;
 		mRegisters.PC += 2;
+
+		mCurrentInstruction.Mnemonic += " $" + disHex(address, 4) + ",X";
 
 		mAddressAbsolute = address + mRegisters.X;
 
@@ -884,6 +934,8 @@ namespace NESEmu {
 		uint16_t address = (hi << 8) | lo;
 		mRegisters.PC += 2;
 
+		mCurrentInstruction.Mnemonic += " $" + disHex(address, 4) + ",Y";
+
 		mAddressAbsolute = address + mRegisters.Y;
 
 		return (address & 0xFF00) != (mAddressAbsolute & 0xFF00);
@@ -894,6 +946,10 @@ namespace NESEmu {
 		mCurrentInstruction.lo = mRegisters.PC;
 
 		mAddressAbsolute = mRegisters.PC;
+
+		uint8_t imm = fetch();
+
+		mCurrentInstruction.Mnemonic += " #$" + disHex(imm,2);
 
 		mCurrentInstruction.lo = getBus("CPU")->read(mAddressAbsolute);
 
@@ -909,16 +965,28 @@ namespace NESEmu {
 
 	uint8_t RP2A03::IND()
 	{
-		uint8_t lo = getBus("CPU")->read(mRegisters.PC);
-		uint8_t hi = getBus("CPU")->read(mRegisters.PC + 1);
+		uint8_t ptrLO = getBus("CPU")->read(mRegisters.PC);
+		uint8_t ptrHI = getBus("CPU")->read(mRegisters.PC + 1);
 
-		mCurrentInstruction.lo = lo;
-		mCurrentInstruction.hi = hi;
+		mCurrentInstruction.lo = ptrLO;
+		mCurrentInstruction.hi = ptrHI;
 
-		uint16_t address = (hi << 8) | lo;
+		uint16_t address = (ptrHI << 8) | ptrLO;
 		mRegisters.PC += 2;
 
-		mAddressAbsolute = (uint16_t)getBus("CPU")->read(address) | ((uint16_t)getBus("CPU")->read(address + 1) << 8);
+		mCurrentInstruction.Mnemonic += " ($" + disHex(address, 4) + ")";
+
+		if (ptrLO == 0xFF) {
+			uint8_t lo = getBus("CPU")->read(address);
+			uint8_t hi = getBus("CPU")->read(address & 0xFF00);
+
+			mAddressAbsolute = (hi << 8) | lo;
+		} else {
+			uint8_t lo = getBus("CPU")->read(address);
+			uint8_t hi = getBus("CPU")->read(address + 1);
+
+			mAddressAbsolute = (hi << 8) | lo;
+		}
 
 		return 0;
 	}
@@ -926,10 +994,11 @@ namespace NESEmu {
 	uint8_t RP2A03::IZX()
 	{
 		uint8_t lo = getBus("CPU")->read(mRegisters.PC);
+		mRegisters.PC++;
 
 		mCurrentInstruction.lo = lo;
 
-		mRegisters.PC++;
+		mCurrentInstruction.Mnemonic += " ($" + disHex(lo, 2) + ",X)";
 
 		mAddressAbsolute = (uint16_t)getBus("CPU")->read((lo + mRegisters.X) & 0xFF) | ((uint16_t)getBus("CPU")->read((lo + mRegisters.X + 1) & 0xFF) << 8);
 
@@ -937,15 +1006,20 @@ namespace NESEmu {
 	}
 	uint8_t RP2A03::IZY()
 	{
-		uint8_t lo = getBus("CPU")->read(mRegisters.PC);
+		uint8_t t = getBus("CPU")->read(mRegisters.PC);
 		mRegisters.PC++;
 
-		mCurrentInstruction.lo = lo;
+		mCurrentInstruction.lo = t;
 
-		uint16_t address = (uint16_t)getBus("CPU")->read(lo) | ((uint16_t)getBus("CPU")->read((lo + 1) & 0xFF) << 8);
-		mAddressAbsolute = address + mRegisters.Y;
+		mCurrentInstruction.Mnemonic += " ($" + disHex(t, 2) + "),Y";
 
-		return (address & 0xFF00) != (mAddressAbsolute & 0xFF00);
+		uint8_t hi = getBus("CPU")->read((t + 1) & 0xFF);
+		uint8_t lo = getBus("CPU")->read(t);
+
+		mAddressAbsolute = (hi << 8) | lo;
+		mAddressAbsolute += mRegisters.Y;
+
+		return (mAddressAbsolute & 0xFF00) != (hi << 8);
 	}
 	uint8_t RP2A03::REL()
 	{
@@ -956,6 +1030,8 @@ namespace NESEmu {
 		mAddressRelative = lo;
 		mRegisters.PC++;
 
+		mCurrentInstruction.Mnemonic += " $" + disHex(mRegisters.PC + mAddressRelative, 4);
+
 		return 0;
 	}
 	uint8_t RP2A03::ZP0()
@@ -963,6 +1039,8 @@ namespace NESEmu {
 		uint8_t lo = getBus("CPU")->read(mRegisters.PC);
 
 		mCurrentInstruction.lo = lo;
+
+		mCurrentInstruction.Mnemonic += " $" + disHex(lo, 2);
 
 		mAddressAbsolute = lo;
 		mRegisters.PC++;
@@ -975,12 +1053,14 @@ namespace NESEmu {
 
 		mCurrentInstruction.lo = lo;
 
+		mCurrentInstruction.Mnemonic += " $" + disHex(lo, 2) + ",X";
+
 		uint16_t address = lo;
 		mRegisters.PC++;
 
 		mAddressAbsolute = (address + mRegisters.X) & 0xFF;
 
-		return ((address + mRegisters.X) & 0xFF00) > 0;
+		return 0;
 	}
 	uint8_t RP2A03::ZPY()
 	{
@@ -988,11 +1068,13 @@ namespace NESEmu {
 
 		mCurrentInstruction.lo = lo;
 
+		mCurrentInstruction.Mnemonic += " $" + disHex(lo, 2) + ",Y";
+
 		uint16_t address = lo;
 		mRegisters.PC++;
 
 		mAddressAbsolute = (address + mRegisters.Y) & 0xFF;
 
-		return ((address + mRegisters.Y) & 0xFF00) > 0;
+		return 0;
 	}
 }
