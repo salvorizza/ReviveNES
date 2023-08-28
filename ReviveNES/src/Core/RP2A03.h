@@ -156,7 +156,10 @@ namespace NESEmu {
 		/*System Functions*/
 		uint8_t BRK(); uint8_t NOP(); uint8_t RTI();
 		/*Unknown*/
-		uint8_t XXX(); uint8_t LAX();
+		uint8_t XXX(); uint8_t LAX(); uint8_t SAX(); uint8_t ALR();
+		uint8_t ANC(); uint8_t ARR(); uint8_t AXS(); uint8_t DCP();
+		uint8_t ISC(); uint8_t RLA(); uint8_t RRA(); uint8_t SLO();
+		uint8_t SRE(); uint8_t SKB(); uint8_t IGN(); 
 
 		/*Accumulator*/
 		uint8_t ACC();
