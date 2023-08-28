@@ -13,7 +13,7 @@ namespace NESEmu {
 			INSTR(BMI, REL, 2),INSTR(AND, IZY, 5),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(AND, ZPX, 4),INSTR(ROL, ZPX, 6),INSTR(XXX, IMP, 8),INSTR(SEC, IMP, 2),INSTR(AND, ABY, 4),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(AND, ABX, 4),INSTR(ROL, ABX, 7),INSTR(XXX, IMP, 8),
 			INSTR(RTI, IMP, 6),INSTR(EOR, IZX, 6),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(EOR, ZP0, 3),INSTR(LSR, ZP0, 5),INSTR(XXX, IMP, 8),INSTR(PHA, IMP, 3),INSTR(EOR, IMM, 2),INSTR(LSR, ACC, 2),INSTR(XXX, IMP, 8),INSTR(JMP, ABS, 3),INSTR(EOR, ABS, 4),INSTR(LSR, ABS, 6),INSTR(XXX, IMP, 8),
 			INSTR(BVC, REL, 2),INSTR(EOR, IZY, 5),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(EOR, ZPX, 4),INSTR(LSR, ZPX, 6),INSTR(XXX, IMP, 8),INSTR(CLI, IMP, 2),INSTR(EOR, ABY, 4),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(EOR, ABX, 4),INSTR(LSR, ABX, 7),INSTR(XXX, IMP, 8),
-			INSTR(RTS, IMP, 5),INSTR(ADC, IZX, 6),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(ADC, ZP0, 3),INSTR(ROR, ZP0, 5),INSTR(XXX, IMP, 8),INSTR(PLA, IMP, 4),INSTR(ADC, IMM, 2),INSTR(ROR, ACC, 2),INSTR(XXX, IMP, 8),INSTR(JMP, IND, 5),INSTR(ADC, ABS, 4),INSTR(ROR, ABS, 6),INSTR(XXX, IMP, 8),
+			INSTR(RTS, IMP, 6),INSTR(ADC, IZX, 6),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(ADC, ZP0, 3),INSTR(ROR, ZP0, 5),INSTR(XXX, IMP, 8),INSTR(PLA, IMP, 4),INSTR(ADC, IMM, 2),INSTR(ROR, ACC, 2),INSTR(XXX, IMP, 8),INSTR(JMP, IND, 5),INSTR(ADC, ABS, 4),INSTR(ROR, ABS, 6),INSTR(XXX, IMP, 8),
 			INSTR(BVS, REL, 2),INSTR(ADC, IZY, 5),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(ADC, ZPX, 4),INSTR(ROR, ZPX, 6),INSTR(XXX, IMP, 8),INSTR(SEI, IMP, 2),INSTR(ADC, ABY, 4),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(ADC, ABX, 4),INSTR(ROR, ABX, 7),INSTR(XXX, IMP, 8),
 			INSTR(XXX, IMP, 8),INSTR(STA, IZX, 6),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(STY, ZP0, 3),INSTR(STA, ZP0, 3),INSTR(STX, ZP0, 3),INSTR(XXX, IMP, 8),INSTR(DEY, IMP, 2),INSTR(XXX, IMP, 8),INSTR(TXA, IMP, 2),INSTR(XXX, IMP, 8),INSTR(STY, ABS, 4),INSTR(STA, ABS, 4),INSTR(STX, ABS, 4),INSTR(XXX, IMP, 8),
 			INSTR(BCC, REL, 2),INSTR(STA, IZY, 6),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(STY, ZPX, 4),INSTR(STA, ZPX, 4),INSTR(STX, ZPY, 4),INSTR(XXX, IMP, 8),INSTR(TYA, IMP, 2),INSTR(STA, ABY, 5),INSTR(TXS, IMP, 2),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),INSTR(STA, ABX, 5),INSTR(XXX, IMP, 8),INSTR(XXX, IMP, 8),
@@ -33,8 +33,9 @@ namespace NESEmu {
 	RP2A03::~RP2A03()
 	{}
 
-	void RP2A03::clock()
+	void RP2A03::clock(RP2C02& ppu)
 	{
+
 		if (mCyclesToConsume == 0) {
 			if (mNMIPending) {
 				nmi();
@@ -45,11 +46,33 @@ namespace NESEmu {
 				mCurrentInstruction.address = mRegisters.PC;
 				mRegisters.PC++;
 
-
 				mCyclesToConsume = mCurrentInstruction.Cycles;
-				mCyclesPassed += mCurrentInstruction.Cycles;
 
 				uint8_t additionalAddressingModeCycles = (this->*mCurrentInstruction.AddressingMode)();
+
+#if 1
+				printf("%04X  %02X ", mCurrentInstruction.address, mCurrentInstruction.opcode);
+				if (mCurrentInstruction.lo != -1) {
+					printf("%02X ", mCurrentInstruction.lo);
+				}
+				else {
+					printf("   ");
+				}
+				if (mCurrentInstruction.hi != -1) {
+					printf("%02X ", mCurrentInstruction.hi);
+				}
+				else {
+					printf("   ");
+				}
+				printf("%s ", mCurrentInstruction.Mnemonic.c_str());
+
+				printf("A:%02X X:%02X Y:%02X P:%02X SP:%02X PPU: %2d,%3d", mRegisters.A, mRegisters.X, mRegisters.Y, mRegisters.SR, mRegisters.SP, ppu.mScanline, ppu.mCycles);
+				printf(" CYC:%zd", mCyclesPassed);
+
+				printf("\n");
+#endif
+
+				
 				uint8_t additionalOperationCycles = (this->*mCurrentInstruction.Operation)();
 
 				mCyclesToConsume += (additionalOperationCycles & additionalAddressingModeCycles);
@@ -57,11 +80,12 @@ namespace NESEmu {
 		}
 
 		mCyclesToConsume--;
+		mCyclesPassed++;
 	}
 
 	void RP2A03::powerUp()
 	{
-		mRegisters.SR = (uint8_t)RP2A03_StatusFlag::U | (uint8_t)RP2A03_StatusFlag::B | (uint8_t)RP2A03_StatusFlag::I;
+		mRegisters.SR = (uint8_t)RP2A03_StatusFlag::U | (uint8_t)RP2A03_StatusFlag::I;
 		mRegisters.A = mRegisters.X = mRegisters.Y = 0;
 		mRegisters.SP = 0xFD;
 		mRegisters.JOY2 = 0x00;
@@ -102,10 +126,10 @@ namespace NESEmu {
 		mAddressAbsolute = 0x0000;
 		mFetched = 0;
 
-		mCyclesToConsume = 8;
+		mCyclesToConsume = 7;
 
 		mRegisters.SP -= 0x3;
-		mRegisters.SR |= (uint8_t)RP2A03_StatusFlag::U | (uint8_t)RP2A03_StatusFlag::I;
+		mRegisters.SR |= (uint8_t)RP2A03_StatusFlag::I;
 		mRegisters.SND_CHN = 0x00;
 		//TODO: APU triangle phase is reset to 0 (i.e. outputs a value of 15, the first step of its waveform)
 		//TODO: APU DPCM output ANDed with 1 (upper 6 bits cleared)
@@ -154,8 +178,9 @@ namespace NESEmu {
 			}
 			mNMILine = value;
 		} else if (lineName == "DMA") {
-			if(value)
+			if (value) {
 				mCyclesToConsume += 513; //TODO: there is a +1 don't know why
+			}
 		}
 	}
 
@@ -368,7 +393,7 @@ namespace NESEmu {
 	{
 		uint8_t val = fetch();
 
-		setFlag(RP2A03_StatusFlag::Z, mRegisters.A & val);
+		setFlag(RP2A03_StatusFlag::Z, (mRegisters.A & val) == 0);
 		setFlag(RP2A03_StatusFlag::V, val & 0x40);
 		setFlag(RP2A03_StatusFlag::N, val & 0x80);
 
@@ -630,7 +655,7 @@ namespace NESEmu {
 			mRegisters.PC += mAddressRelative;
 
 			if ((tempPC & 0xFF00) != (mRegisters.PC & 0xFF00))
-				mCyclesToConsume++;
+				mCyclesToConsume++;			
 		}
 
 		return 0;

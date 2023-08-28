@@ -60,29 +60,8 @@ public:
 
 	virtual void onUpdate() override {
 		for (int j = 0; j < 1000; j++) {
-			size_t last = mCPU.mCyclesPassed;
-			mCPU.clock();
-
-			if (last != mCPU.mCyclesPassed) {
-				printf("%04X  %02X ", mCPU.mCurrentInstruction.address, mCPU.mCurrentInstruction.opcode);
-				if (mCPU.mCurrentInstruction.lo != -1) {
-					printf("%02X ", mCPU.mCurrentInstruction.lo);
-				} else {
-					printf("   ");
-				}
-				if (mCPU.mCurrentInstruction.hi != -1) {
-					printf("%02X ", mCPU.mCurrentInstruction.hi);
-				}
-				else {
-					printf("   ");
-				}
-				printf("%s ", mCPU.mCurrentInstruction.Mnemonic.c_str());
-				printf("CYC: %d", mCPU.mCyclesPassed);
-
-				printf("\n");
-				
-				//C000  4C F5 C5  JMP $C5F5                       A:00 X:00 Y:00 P:24 SP:FD PPU:  0, 21 CYC:7
-			}
+			size_t last = mCPU.mCurrentInstruction.address;
+			mCPU.clock(mPPU);
 
 			for (int i = 0; i < 3; i++) {
 				mPPU.clock();

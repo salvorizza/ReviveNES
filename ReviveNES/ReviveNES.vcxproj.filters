@@ -30,6 +30,9 @@
     <ClInclude Include="src\Base\Bus.h">
       <Filter>Base</Filter>
     </ClInclude>
+    <ClInclude Include="src\Core\CartridgeSlot.h">
+      <Filter>Core</Filter>
+    </ClInclude>
     <ClInclude Include="src\Core\RP2A03.h">
       <Filter>Core</Filter>
     </ClInclude>
@@ -90,15 +93,19 @@
     <ClInclude Include="src\UI\Window\Window.h">
       <Filter>UI\Window</Filter>
     </ClInclude>
+    <ClInclude Include="src\Utils\Cartridge.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
     <ClInclude Include="src\Utils\Palette.h">
       <Filter>Utils</Filter>
     </ClInclude>
-    <ClInclude Include="src\Utils\Cartridge.h" />
-    <ClInclude Include="src\Core\CartridgeSlot.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Base\Bus.cpp">
       <Filter>Base</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\CartridgeSlot.cpp">
+      <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\RP2A03.cpp">
       <Filter>Core</Filter>
@@ -151,11 +158,12 @@
     <ClCompile Include="src\UI\Window\Window.cpp">
       <Filter>UI\Window</Filter>
     </ClCompile>
+    <ClCompile Include="src\Utils\Cartridge.cpp">
+      <Filter>Utils</Filter>
+    </ClCompile>
     <ClCompile Include="src\Utils\Palette.cpp">
       <Filter>Utils</Filter>
     </ClCompile>
     <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\Utils\Cartridge.cpp" />
-    <ClCompile Include="src\Core\CartridgeSlot.cpp" />
   </ItemGroup>
 </Project>

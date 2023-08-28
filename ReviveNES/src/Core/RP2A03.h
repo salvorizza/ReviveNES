@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Base/Bus.h>
+#include "Core/RP2C02.h"
 
 #include <array>
 
@@ -114,7 +115,7 @@ namespace NESEmu {
 		RP2A03();
 		~RP2A03();
 
-		void clock();
+		void clock(RP2C02& ppu);
 		void powerUp();
 		void reset();
 		void irq();

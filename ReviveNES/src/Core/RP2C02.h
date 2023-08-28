@@ -56,7 +56,7 @@ namespace NESEmu {
 	public:
 		Palette mPalette;
 		RP2C02_Registers mRegisters;
-		int16_t mScanline = -1;
+		int16_t mScanline = 0;
 		uint16_t mCycles = 0;
 
 		uint8_t mNTByte, mATByte, mBGplane0, mBGplane1;
